@@ -27,7 +27,7 @@ The project uses Grizzly HTTP server out of the box, because it was easy to set 
   <tr>
     <td>GET</td>
     <td>/sudoku/boards</td>
-    <td>List pre-generated boards</td>
+    <td>List boards that have been created. Note that not all boards may have been generated yet.</td>
   </tr>
   <tr>
     <td>POST</td>
