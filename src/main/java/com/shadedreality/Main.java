@@ -17,15 +17,15 @@
 
 package com.shadedreality;
 
-import com.shadedreality.rest.BoardResource;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoClientURI;
+import com.shadedreality.data.BoardRegistry;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
-import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.Optional;
 
 /**
@@ -33,19 +33,12 @@ import java.util.Optional;
  *
  */
 public class Main {
-    // Base URI the Grizzly HTTP server will listen on
-    public static final Optional<String> host;
-    public static final Optional<String> port;
-    public static final String BASE_URI;
+    // Use PORT and DATABASE_URL from the environment to set up our server
+    public static final int PORT;
 
     static {
-        host = Optional.ofNullable(System.getenv("HOST"));
-        port = Optional.ofNullable(System.getenv("PORT"));
-        BASE_URI = "http://"
-                + host.orElse("localhost")
-                + ":"
-                + port.orElse("8080")
-                + "/sudoku";
+        Optional<String> envPort = Optional.ofNullable(System.getenv("PORT"));
+        PORT = Integer.valueOf(envPort.orElse("8080"));
     }
 
     /**
@@ -57,10 +50,12 @@ public class Main {
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         context.setContextPath("/");
 
-        int iPort = Integer.valueOf(port.orElse("8080"));
-        System.out.println("=== Initializing server using port " + iPort);
+        // Establish DB connection first
 
-        Server jettyServer = new Server(iPort);
+        // now start the server
+        System.out.println("=== Initializing server on port " + PORT);
+
+        Server jettyServer = new Server(PORT);
         jettyServer.setHandler(context);
 
         ServletHolder jerseyServlet = context.addServlet(ServletContainer.class, "/sudoku/*");

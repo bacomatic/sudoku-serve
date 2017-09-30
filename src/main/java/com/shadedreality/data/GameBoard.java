@@ -18,33 +18,46 @@
 package com.shadedreality.data;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.shadedreality.sudokugen.Board;
+import org.bson.codecs.pojo.annotations.BsonDiscriminator;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.UUID;
 
 /**
- * Representation of a Sudoku board. This separates board generation from the REST API.
+ * POJO representation of a Sudoku board. This separates board generation from the REST API. This class is used to
+ * both store board data in the database and pass said data back to clients.
+ *
+ * We need to ignore _id from database objects. We don't use that id as we have our own.
  */
+@JsonIgnoreProperties({"_id"})
 public class GameBoard {
     private int size;
     private long randomSeed;
-    private int progress;
-    private boolean generated;
     private int[] board;
-    private String id;
+    private String boardId;
 
     public GameBoard() {
         size = 3;
         randomSeed = 0;
         board = new int[size * size];
-        id = UUID.randomUUID().toString();
+        boardId = UUID.randomUUID().toString();
+    }
+
+    public GameBoard(GameBoard copy) {
+        size = copy.getSize();
+        randomSeed = copy.getRandomSeed();
+        board = copy.getBoard(); // already a clone, no need to copy
+        boardId = UUID.randomUUID().toString(); // copy gets unique id
     }
 
     public GameBoard(Board b) {
         size = b.getSize();
         randomSeed = b.getRandomSeed();
         board = b.toIntArray();
-        id = UUID.randomUUID().toString();
+        boardId = UUID.randomUUID().toString();
     }
 
     public int getSize() {
@@ -63,44 +76,24 @@ public class GameBoard {
         this.randomSeed = randomSeed;
     }
 
-    public int getProgress() {
-        return progress;
-    }
-
-    public boolean isGenerated() {
-        return generated;
-    }
-
     public int[] getBoard() {
         return board.clone();
     }
 
-    public String getId() {
-        return id;
-    }
-
-    @JsonIgnore
     public void setBoard(int[] board) {
         this.board = board.clone();
     }
 
-    // The following should not be accessible to the REST API, they should be read-only
-    @JsonIgnore
-    public void setProgress(int progress) {
-        this.progress = progress;
+    public String getBoardId() {
+        return boardId;
     }
 
-    @JsonIgnore
-    public void setGenerated(boolean generated) {
-        this.generated = generated;
+    public void setBoardId(String boardId) {
+        this.boardId = boardId;
     }
 
     @JsonIgnore
     public GameBoard normalize() {
-        if (!generated) {
-            return null;
-        }
-
         /*
          * create a number map we'll use to translate
          * Each index corresponds to a number in the existing board (minus 1, because zero based)
@@ -117,18 +110,12 @@ public class GameBoard {
             numMap[board[ii] - 1] = ii + 1;
         }
 
-        GameBoard gb = new GameBoard();
-        gb.setSize(size);
-        gb.setRandomSeed(0L);
-
-        int[] outBoard = new int[board.length];
+        GameBoard gb = new GameBoard(this);
+        gb.setRandomSeed(0); // no longer valid
 
         for (int ii = 0; ii < board.length; ii++) {
-            outBoard[ii] = numMap[board[ii] - 1];
+            gb.board[ii] = numMap[board[ii] - 1];
         }
-        gb.setBoard(outBoard);
-        gb.setProgress(100);
-        gb.setGenerated(true);
 
         return gb;
     }

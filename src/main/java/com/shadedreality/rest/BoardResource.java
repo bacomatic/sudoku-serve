@@ -39,7 +39,6 @@ import java.util.List;
  *                                    size have the same first box.
  *
  * TODO: Add filters for GET /boards, by size, randomSeed and generated
- * TODO: Actual REST documentation (HTML) for this...
  */
 @Path("/boards")
 public class BoardResource {
@@ -78,8 +77,11 @@ public class BoardResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response getBoard(@PathParam("id") String id) {
         GameBoard gb = BoardRegistry.getRegistry().getBoard(id);
+        if (gb == null) {
+            gb = BoardGenerator.getBoard(id);
+        }
         if (gb != null) {
-            return Response.status(200).entity(gb).build();
+            return Response.ok(gb).build();
         }
         throw new NotFoundException("Game board with id " + id + " does not exist");
     }
@@ -97,12 +99,16 @@ public class BoardResource {
     @Path("{id}/status")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getBoardStatus(@PathParam("id") String id) {
-        GameBoard gb = BoardRegistry.getRegistry().getBoard(id);
-        if (gb == null) {
-            throw new NotFoundException("Game board with id " + id + " does not exist");
+        Integer pct = BoardGenerator.getBoardProgress(id);
+        if (pct == null) {
+            GameBoard gb = BoardRegistry.getRegistry().getBoard(id);
+            if (gb != null) {
+                pct = 100;
+            } else {
+                throw new NotFoundException("Game board with id " + id + " does not exist");
+            }
         }
-        return Response.ok().entity("{\"progress\": " + gb.getProgress()
-                + ", \"generated\": " + gb.isGenerated() + "}").build();
+        return Response.ok("{\"progress\": " + pct + "}").build();
     }
 
     @GET
@@ -111,7 +117,7 @@ public class BoardResource {
     public GameBoard getNormalizedBoard(@PathParam("id") String id) {
         GameBoard gb = BoardRegistry.getRegistry().getBoard(id);
         if (gb == null) {
-            throw new NotFoundException("Game board with id " + id + " does not exist");
+            throw new NotFoundException("Game board with id " + id + " does not exist or is being generated still");
         }
         gb = gb.normalize();
         if (gb == null) {

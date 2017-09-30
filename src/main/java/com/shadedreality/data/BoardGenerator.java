@@ -20,12 +20,16 @@ package com.shadedreality.data;
 import com.shadedreality.sudokugen.Board;
 import com.shadedreality.sudokugen.Generator;
 
+import java.util.*;
+
 /**
  * Board generator. Handles board generation asynchronously.
  *
  * TODO: Create generator executor pool to avoid overloading the system.
  */
 public class BoardGenerator {
+    private static Map<String, GeneratorTask> taskMap = Collections.synchronizedMap(new HashMap<>());
+
     // Discourage instantiation
     private BoardGenerator() {}
 
@@ -36,9 +40,10 @@ public class BoardGenerator {
      */
     public static String generateBoard(Board board) {
         GeneratorTask task = new GeneratorTask(board);
-        String id = task.getGameBoard().getId();
-        BoardRegistry.getRegistry().registerBoard(task.getGameBoard());
-        return id;
+        String boardId = task.getGameBoard().getBoardId();
+        taskMap.put(boardId, task);
+        task.start(); // call after adding to map to avoid race condition
+        return boardId;
     }
 
     /**
@@ -63,9 +68,37 @@ public class BoardGenerator {
         return generateBoard(new Board(size, randomSeed));
     }
 
+    /**
+     * Gets a GameBoard while it's being generated.
+     * @param boardId unique Id for the board to get
+     * @return GameBoard if it's being generated or null if it does not exist
+     */
+    public static GameBoard getBoard(String boardId) {
+        GeneratorTask task = taskMap.get(boardId);
+        if (task == null) {
+            return null;
+        }
+        return task.getGameBoard();
+    }
+
+    /**
+     * Gets the progress of a generator.
+     * @param boardId unique Id of the board to check
+     * @return percentage of completion
+     * @throws IllegalArgumentException if boardId does not exist in task list
+     */
+    public static Integer getBoardProgress(String boardId) {
+        GeneratorTask task = taskMap.get(boardId);
+        if (task == null) {
+            return null;
+        }
+        return task.getProgress();
+    }
+
     private static class GeneratorTask {
         private final Generator generator;
         private final GameBoard gameBoard;
+        private int progress;
         private final Thread genThread;
 
         public GeneratorTask(Board board) {
@@ -74,22 +107,39 @@ public class BoardGenerator {
 
             // spawn a thread to handle the generator
             genThread = new Thread(() -> {
-               gameBoard.setProgress(0);
-               gameBoard.setGenerated(false);
+                // Set the monitor to setProgress, so we can see how far along it is
+                progress = 0;
+                generator.setMonitor(this::setProgress);
+                generator.generate();
+                progress = 100;
 
-               // Set the monitor to setProgress, so we can see how far along it is
-               generator.setMonitor(gameBoard::setProgress);
-               generator.generate();
+                gameBoard.setBoard(board.toIntArray());
 
-               gameBoard.setBoard(board.toIntArray());
-               gameBoard.setProgress(100);
-               gameBoard.setGenerated(true);
+                // Add to database
+                BoardRegistry.getRegistry().registerBoard(gameBoard);
+
+                // remove from taskMap now that done
+                taskMap.remove(gameBoard.getBoardId());
             });
-            genThread.start();
         }
 
         public GameBoard getGameBoard() {
             return gameBoard;
+        }
+
+        private void start() {
+            // FIXME: Remove magic seed for production
+            if (gameBoard.getRandomSeed() != 8675309L) {
+                genThread.start();
+            }
+        }
+
+        public int getProgress() {
+            return progress;
+        }
+
+        public void setProgress(int progress) {
+            this.progress = progress;
         }
     }
 }

@@ -189,7 +189,7 @@ public class Board {
     public void forEachColumn(Consumer<CellGroup> r) {
         columns.forEach(r);
     }
-    
+
     public void print() {
         StringBuilder sb = new StringBuilder("    ");
         for (int ii = 0; ii < groupCount; ii++) {
