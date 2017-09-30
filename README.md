@@ -4,7 +4,16 @@
 This is a maven based project to build a microservice that uses Jersey/Jackson to generate and serve sudoku boards.
 
 Once cloned you can open the project directly in Intellij Idea. You can also build and run this from the command line using mvn.
-The project uses Grizzly HTTP server out of the box, because it was easy to set up...
+The project uses eclipse.orgs Jetty HTTP server, because it was easy to set up.
+
+To build and run, just use mvn as you would most other projects:
+```
+mvn clean install
+mvn exec:java
+```
+
+This server uses language features only available in Java 8 or later, notably lamba expressions and streams. It has not
+been tested with Java 9 yet.
 
 ## Terminology
 * **board** - A full Sudoku game board, composed of a size x size array of blocks. For example a traditional Sudoku board is 3
@@ -79,5 +88,3 @@ Fields:
                    changes.
 * **size** - The number of blocks per side and cells per block row/column. A traditional 3x3 Sudoku board has size "3". Only size 2 and 3
              boards are supported at the moment. Size 4 boards will be supported when the generator is fixed.
-
-
