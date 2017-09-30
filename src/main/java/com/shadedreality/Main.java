@@ -17,9 +17,12 @@
 
 package com.shadedreality;
 
-import org.glassfish.grizzly.http.server.HttpServer;
-import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
+import com.shadedreality.rest.BoardResource;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
 import org.glassfish.jersey.server.ResourceConfig;
+import org.glassfish.jersey.servlet.ServletContainer;
 
 import java.io.IOException;
 import java.net.URI;
@@ -46,29 +49,33 @@ public class Main {
     }
 
     /**
-     * Starts Grizzly HTTP server exposing JAX-RS resources defined in this application.
-     * @return Grizzly HTTP server.
-     */
-    public static HttpServer startServer() {
-        // create a resource config that scans for JAX-RS resources and providers
-        // in com.shadedreality.rest package
-        final ResourceConfig rc = new ResourceConfig().packages("com.shadedreality.rest");
-
-        // create and start a new instance of grizzly http server
-        // exposing the Jersey application at BASE_URI
-        return GrizzlyHttpServerFactory.createHttpServer(URI.create(BASE_URI), rc);
-    }
-
-    /**
      * Main method.
      * @param args
      * @throws IOException
      */
     public static void main(String[] args) throws IOException {
-        final HttpServer server = startServer();
-        System.out.println(String.format("Jersey app started with WADL available at "
-                + "%sapplication.wadl\nHit enter to stop it...", BASE_URI));
-//        System.in.read();
-//        server.stop();
+        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
+        context.setContextPath("/");
+
+        int iPort = Integer.valueOf(port.orElse("8080"));
+        System.out.println("=== Initializing server using port " + iPort);
+
+        Server jettyServer = new Server(iPort);
+        jettyServer.setHandler(context);
+
+        ServletHolder jerseyServlet = context.addServlet(ServletContainer.class, "/sudoku/*");
+        jerseyServlet.setInitOrder(0);
+        jerseyServlet.setInitParameter("jersey.config.server.provider.packages", "com.shadedreality.rest");
+
+        try {
+            jettyServer.start();
+            jettyServer.dumpStdErr();
+            jettyServer.join();
+        } catch (Exception e) {
+            System.err.println("Uncaught Exception in server: "+e);
+        }
+        finally {
+            jettyServer.destroy();
+        }
     }
 }
