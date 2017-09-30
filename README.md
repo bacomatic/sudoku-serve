@@ -15,6 +15,12 @@ mvn exec:java
 This server uses language features only available in Java 8 or later, notably lamba expressions and streams. It has not
 been tested with Java 9 yet.
 
+This project is set up to work on services like Heroku that use environment variables to configure the running service.
+Jetty only requires the port, so I use PORT to configure the HTTP server. The MongoDB driver, in BoardRegistry, uses DATABASE_URL
+to determine how to connect to the database, or it falls back on localhost:27017. In either case, it connects to a database
+named "sudoku-db", which is hard coded (at the moment). Heroku defines PORT for you, but you must supply your own DATABASE_URL,
+and at the moment only MongoDB is supported. I may extend that to support other databases in the future.
+
 ## Terminology
 * **board** - A full Sudoku game board, composed of a size x size array of blocks. For example a traditional Sudoku board is 3
               blocks high by 3 blocks wide.
