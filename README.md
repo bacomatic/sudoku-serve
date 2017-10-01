@@ -36,7 +36,17 @@ been tested with Java 9 yet.
   <tr>
     <td>GET</td>
     <td>/sudoku/boards</td>
-    <td>List boards that have been created. Note that not all boards may have been generated yet.</td>
+    <td>
+        List boards that have been created. Note that not all boards may have been generated yet.
+        This endpoint supports query parameters, see below for a description.
+    </td>
+  </tr>
+  <tr>
+    <td>GET</td>
+    <td>/sudoku/boards/count</td>
+    <td>
+        Count of boards available. This endpoint supports query parameters, see below for a description.
+    </td>
   </tr>
   <tr>
     <td>POST</td>
@@ -77,7 +87,7 @@ All data, including boards, are returned to the client in JSON objects, for exam
 }
 ```
 
-Fields:
+### Fields:
 * **board** - Array of ints, in cell order starting at the top left and going horizontally to the bottom right
 * **generated** - Flag indicating whether the board has been fully generated or not
 * **id** - UUID generated for this board, use this when requesting specific boards in the REST API
@@ -88,3 +98,13 @@ Fields:
                    changes.
 * **size** - The number of blocks per side and cells per block row/column. A traditional 3x3 Sudoku board has size "3". Only size 2 and 3
              boards are supported at the moment. Size 4 boards will be supported when the generator is fixed.
+
+### Query Parameters
+* **size** - Size of boards to query or count
+* **randomSeed** - Random seed used to generate board
+* **inProgress** - If "true" then only show boards which are being generated at the moment. Any other
+                   value will only show already generated boards.
+* **skip** - The number of boards to skip in the results. Use for pagination. The count endpoint 
+             ignores this parameter.
+* **limit** - The maximum number of boards to return. Defaults to 50. Set to zero to have no limit
+              (all boards returned). This parameter is ignored in the count endpoint.

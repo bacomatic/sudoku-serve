@@ -81,6 +81,37 @@ public class BoardGenerator {
         return task.getGameBoard();
     }
 
+    public static List<GameBoard> query(QueryParams queryParams) {
+        ArrayList<GameBoard> outList = new ArrayList<>();
+
+        taskMap.values().forEach(task -> {
+            GameBoard gb = task.getGameBoard();
+            if (gb.matchQuery(queryParams)) {
+                if (!queryParams.checkSkip()) {
+                    outList.add(gb);
+                    // We can't break a forEach loop, without resorting to ugly hacks
+                    // this will set a kill flag when the limit is reached so we'll skip
+                    // anythis past the limit
+                    queryParams.checkLimit();
+                }
+            }
+        });
+        return outList;
+    }
+
+    public static long count(QueryParams queryParams) {
+        // My kingdom for some real closures!!!
+        final long[] counts = new long[1];
+
+        taskMap.values().forEach(task -> {
+            GameBoard gb = task.getGameBoard();
+            if (gb != null && gb.matchQuery(queryParams)) {
+                counts[0]++;
+            }
+        });
+
+        return counts[0];
+    }
     /**
      * Gets the progress of a generator.
      * @param boardId unique Id of the board to check
@@ -103,7 +134,7 @@ public class BoardGenerator {
 
         public GeneratorTask(Board board) {
             generator = new Generator(board);
-            gameBoard = new GameBoard(board);
+            gameBoard = new GameBoard(board.getSize(), board.getRandomSeed());
 
             // spawn a thread to handle the generator
             genThread = new Thread(() -> {

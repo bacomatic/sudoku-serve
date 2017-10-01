@@ -22,14 +22,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.Block;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
+import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
 import org.bson.Document;
+import org.bson.conversions.Bson;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -68,15 +71,65 @@ public final class BoardRegistry {
         return BoardRegistryFactory.getGlobalRegistry();
     }
 
-    public List<GameBoard> getBoardList() {
+    private Bson buildQueryFilters(QueryParams params) {
+        if (params != null) {
+            List<Bson> filters = new ArrayList<>();
+            if (params.hasSize()) {
+                filters.add(Filters.eq("size", params.getSize()));
+            }
+
+            if (params.hasRandomSeed()) {
+                filters.add(Filters.eq("randomSeed", params.getRandomSeed()));
+            }
+
+            if (!filters.isEmpty()) {
+                return Filters.and(filters);
+            }
+        }
+        return null;
+    }
+
+    public List<GameBoard> query(QueryParams params) {
         ArrayList<GameBoard> outList = new ArrayList<>();
-        boardCollection.find().forEach((Block<Document>) document -> {
+        int limit = 50;
+        int skip = 0;
+
+        if (params != null) {
+            limit = params.getLimit();
+            skip = params.getSkip();
+        }
+
+        FindIterable<Document> results;
+        Bson filters = buildQueryFilters(params);
+        if (filters == null) {
+            results = boardCollection.find();
+        } else {
+            results = boardCollection.find(filters);
+        }
+
+        // apply sort and limits
+        results = results.sort(new Document("_id", 1));
+        if (skip > 0) {
+            results = results.skip(skip);
+        }
+        if (limit > 0) {
+            results = results.limit(limit);
+        }
+        results.forEach((Block<Document>) document -> {
             GameBoard gb = documentToGameBoard(document);
             if (gb != null) {
                 outList.add(gb);
             }
         });
         return outList;
+    }
+
+    public long count(QueryParams params) {
+        Bson filters = buildQueryFilters(params);
+        if (filters != null) {
+            return boardCollection.count(filters);
+        }
+        return boardCollection.count();
     }
 
     void registerBoard(GameBoard board) {

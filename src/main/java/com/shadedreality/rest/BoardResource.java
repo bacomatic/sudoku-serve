@@ -20,16 +20,19 @@ package com.shadedreality.rest;
 import com.shadedreality.data.BoardGenerator;
 import com.shadedreality.data.BoardRegistry;
 import com.shadedreality.data.GameBoard;
+import com.shadedreality.data.QueryParams;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.*;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Board generator endpoints
  *
- * GET    - /boards                 - List pre-generated boards
+ * GET    - /boards                 - List pre-generated boards. Accepts query parameters (see below)
+ * GET    - /boards/count           - Number of boards, accepts same query params except skip and limit
  * POST   - /boards/new             - Create a new board using given parameters
  * GET    - /boards/{id}            - Get a specific board (even if not fully generated yet)
  * DELETE - /boards/{id}            - Delete a board, may not take effect immediately if the board is being generated
@@ -37,16 +40,40 @@ import java.util.List;
  * GET    - /boards/{id}/normalized - Get a normalized board, for pattern matching. A normalized board has all cells in
  *                                    the first box arranged in sequential order, so all normalized boards of the same
  *                                    size have the same first box.
- *
- * TODO: Add filters for GET /boards, by size, randomSeed and generated
  */
 @Path("/boards")
 public class BoardResource {
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public List<GameBoard> getBoards() {
-        // TODO: Filters
-        return BoardRegistry.getRegistry().getBoardList();
+    public List<GameBoard> getBoards(@Context UriInfo uriInfo) {
+        QueryParams queryParams = new QueryParams(uriInfo.getQueryParameters());
+        List<GameBoard> outList = new ArrayList<>();
+
+        if (queryParams.isQueryGenerator()) {
+            outList.addAll(BoardGenerator.query(queryParams));
+        }
+        if (queryParams.isQueryDatabase() && !queryParams.isLimitReached()) {
+            outList.addAll(BoardRegistry.getRegistry().query(queryParams));
+        }
+
+        return outList;
+    }
+
+    @GET
+    @Path("count")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getBoardCount(@Context UriInfo uriInfo) {
+        QueryParams queryParams = new QueryParams(uriInfo.getQueryParameters());
+        long count = 0;
+
+        if (queryParams.isQueryGenerator()) {
+            count += BoardGenerator.count(queryParams);
+        }
+        if (queryParams.isQueryDatabase()) {
+            count += BoardRegistry.getRegistry().count(queryParams);
+        }
+
+        return Response.ok("{\"count\": "+count+"}").build();
     }
 
     @POST

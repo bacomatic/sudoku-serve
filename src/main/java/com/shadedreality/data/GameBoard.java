@@ -24,6 +24,7 @@ import org.bson.codecs.pojo.annotations.BsonDiscriminator;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -42,8 +43,14 @@ public class GameBoard {
     public GameBoard() {
         size = 3;
         randomSeed = 0;
-        board = new int[size * size];
+        board = new int[0]; // start with empty array
         boardId = UUID.randomUUID().toString();
+    }
+
+    public GameBoard(int size, long randomSeed) {
+        this();
+        this.size = size;
+        this.randomSeed = randomSeed;
     }
 
     public GameBoard(GameBoard copy) {
@@ -51,13 +58,6 @@ public class GameBoard {
         randomSeed = copy.getRandomSeed();
         board = copy.getBoard(); // already a clone, no need to copy
         boardId = UUID.randomUUID().toString(); // copy gets unique id
-    }
-
-    public GameBoard(Board b) {
-        size = b.getSize();
-        randomSeed = b.getRandomSeed();
-        board = b.toIntArray();
-        boardId = UUID.randomUUID().toString();
     }
 
     public int getSize() {
@@ -118,5 +118,24 @@ public class GameBoard {
         }
 
         return gb;
+    }
+
+    /**
+     * Check if this board matches a set of parameters.
+     * Right now, only size and randomSeed are supported
+     * @param params Map containing query parameters to match
+     * @return true if ALL relevant parameters match this board, false otherwise
+     */
+    boolean matchQuery(QueryParams params) {
+        if (params != null) {
+            if (params.hasSize() && (params.getSize() != size)) {
+                return false;
+            }
+
+            if (params.hasRandomSeed() && (params.getRandomSeed() != randomSeed)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

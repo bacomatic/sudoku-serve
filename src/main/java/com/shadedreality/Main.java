@@ -17,9 +17,6 @@
 
 package com.shadedreality;
 
-import com.mongodb.MongoClient;
-import com.mongodb.MongoClientURI;
-import com.shadedreality.data.BoardRegistry;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -42,9 +39,9 @@ public class Main {
     }
 
     /**
-     * Main method.
-     * @param args
-     * @throws IOException
+     * Main method. Where the magic starts. It's sort of like walking through the gates at Disneyland.
+     * @param args Things a lot of pirates say.
+     * @throws IOException when it's bored.
      */
     public static void main(String[] args) throws IOException {
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
