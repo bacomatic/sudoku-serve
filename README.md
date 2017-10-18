@@ -114,3 +114,6 @@ All data, including boards, are returned to the client in JSON objects, for exam
              ignores this parameter.
 * **limit** - The maximum number of boards to return. Defaults to 50. Set to zero to have no limit
               (all boards returned). This parameter is ignored in the count endpoint.
+
+### TODO
+- [ ] Add puzzle generation logic and endpoints
