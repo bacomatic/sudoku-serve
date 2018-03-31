@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016, 2017, Shaded Reality, All Rights Reserved.
+ * Copyright (C) 2016, 2018, Shaded Reality, All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@ import javax.ws.rs.core.MultivaluedMap;
 public class QueryParams {
     private Integer size = null;
     private Long randomSeed = null;
+    private Integer difficulty = null;
     private int skip = 0;
     private boolean limitReached = false;
     private int limit = 50;
@@ -39,6 +40,10 @@ public class QueryParams {
 
         if (uriParams.containsKey("randomSeed")) {
             randomSeed = Long.valueOf(uriParams.getFirst("randomSeed"));
+        }
+
+        if (uriParams.containsKey("difficulty")) {
+            difficulty = Integer.valueOf(uriParams.getFirst("difficulty"));
         }
 
         if (uriParams.containsKey("inProgress")) {
@@ -69,6 +74,14 @@ public class QueryParams {
 
     public Long getRandomSeed() {
         return randomSeed;
+    }
+
+    public boolean hasDifficulty() {
+        return difficulty != null;
+    }
+
+    public Integer getDifficulty() {
+        return difficulty;
     }
 
     public boolean isQueryDatabase() {
@@ -125,5 +138,26 @@ public class QueryParams {
 
     public boolean isLimitReached() {
         return limitReached;
+    }
+
+    public final String toString() {
+        StringBuilder sb = new StringBuilder("QueryParameters {\n");
+        if (hasSize()) {
+            sb.append("    size: ");
+            sb.append(getSize().toString());
+            sb.append("\n");
+        }
+        if (hasRandomSeed()) {
+            sb.append("    randomSeed: ");
+            sb.append(getRandomSeed().toString());
+            sb.append("\n");
+        }
+        if (hasDifficulty()) {
+            sb.append("    difficulty: ");
+            sb.append(getDifficulty().toString());
+            sb.append("\n");
+        }
+        sb.append("}\n");
+        return sb.toString();
     }
 }

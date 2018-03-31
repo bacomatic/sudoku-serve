@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016, 2017, Shaded Reality, All Rights Reserved.
+ * Copyright (C) 2016, 2018, Shaded Reality, All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@ import com.shadedreality.sudokugen.Board;
 import com.shadedreality.sudokugen.Generator;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * Board generator. Handles board generation asynchronously.
@@ -35,11 +36,12 @@ public class BoardGenerator {
 
     /**
      * Kick off a generator running on the provided board.
-     * @param board the board to generate.
+     * @param size size of the board to generate
+     * @param randomSeed random seed to be used
      * @return a unique identifier for this board
      */
-    public static String generateBoard(Board board) {
-        GeneratorTask task = new GeneratorTask(board);
+    public static String generateBoard(int size, long randomSeed, Consumer<GameBoard> finishProc) {
+        GeneratorTask task = new GeneratorTask(size, randomSeed, finishProc);
         String boardId = task.getGameBoard().getBoardId();
         taskMap.put(boardId, task);
         task.start(); // call after adding to map to avoid race condition
@@ -47,25 +49,23 @@ public class BoardGenerator {
     }
 
     /**
-     * Kick off generator using provided parameters.
-     * @param size size of the board to generate
-     * @return unique id for the board being generated
-     */
-    public static String generateBoard(int size) {
-        return generateBoard(new Board(size));
-    }
-
-    /**
      * Kick off generator using provided parameters. This version
      * allows specifying a random seed which produces the same results
      * each time. Future results not guaranteed as the underlying
      * algorithms may change.
-     * @param size size of the board to generate
-     * @param randomSeed random seed to be used
+     * @param queryParams parameters containing board information for the generator
      * @return unique id for the board being generated
      */
-    public static String generateBoard(int size, long randomSeed) {
-        return generateBoard(new Board(size, randomSeed));
+    public static String generateBoard(QueryParams queryParams, Consumer<GameBoard> finishProc) {
+        int size = 3;
+        long randomSeed = 0;
+        if (queryParams.hasSize()) {
+            size = queryParams.getSize();
+        }
+        if (queryParams.hasRandomSeed()) {
+            randomSeed = queryParams.getRandomSeed();
+        }
+        return generateBoard(size, randomSeed, finishProc);
     }
 
     /**
@@ -91,7 +91,7 @@ public class BoardGenerator {
                     outList.add(gb);
                     // We can't break a forEach loop, without resorting to ugly hacks
                     // this will set a kill flag when the limit is reached so we'll skip
-                    // anythis past the limit
+                    // anything past the limit
                     queryParams.checkLimit();
                 }
             }
@@ -132,9 +132,10 @@ public class BoardGenerator {
         private int progress;
         private final Thread genThread;
 
-        public GeneratorTask(Board board) {
+        GeneratorTask(final int size, final long randomSeed, final Consumer<GameBoard> finishProc) {
+            Board board = new Board(size, randomSeed);
             generator = new Generator(board);
-            gameBoard = new GameBoard(board.getSize(), board.getRandomSeed());
+            gameBoard = new GameBoard(size, randomSeed);
 
             // spawn a thread to handle the generator
             genThread = new Thread(() -> {
@@ -151,25 +152,30 @@ public class BoardGenerator {
 
                 // remove from taskMap now that done
                 taskMap.remove(gameBoard.getBoardId());
+
+                // call finishProc if set
+                if (finishProc != null) {
+                    finishProc.accept(gameBoard);
+                }
             });
         }
 
-        public GameBoard getGameBoard() {
+        GameBoard getGameBoard() {
             return gameBoard;
         }
 
-        private void start() {
+        void start() {
             // FIXME: Remove magic seed for production
             if (gameBoard.getRandomSeed() != 8675309L) {
                 genThread.start();
             }
         }
 
-        public int getProgress() {
+        int getProgress() {
             return progress;
         }
 
-        public void setProgress(int progress) {
+        void setProgress(int progress) {
             this.progress = progress;
         }
     }

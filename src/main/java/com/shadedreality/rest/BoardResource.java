@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016, 2017, Shaded Reality, All Rights Reserved.
+ * Copyright (C) 2016, 2018, Shaded Reality, All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -79,14 +79,11 @@ public class BoardResource {
     @POST
     @Path("new")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response createBoard(GameBoard board, @Context UriInfo uriInfo) {
-        System.out.println("Board requested. Size " + board.getSize() + ", seed " + board.getRandomSeed());
-        String id;
-        if (board.getRandomSeed() != 0) {
-            id = BoardGenerator.generateBoard(board.getSize(), board.getRandomSeed());
-        } else {
-            id = BoardGenerator.generateBoard(board.getSize());
-        }
+    public Response createBoard(@Context UriInfo uriInfo) {
+        QueryParams queryParams = new QueryParams(uriInfo.getQueryParameters());
+
+        System.out.println("Board requested. Params: " + queryParams.toString());
+        String id = BoardGenerator.generateBoard(queryParams, null);
 
         // We only need to replace "new" with the ID
         UriBuilder builder = uriInfo.getAbsolutePathBuilder();

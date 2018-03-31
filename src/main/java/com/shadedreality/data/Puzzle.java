@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, Shaded Reality, All Rights Reserved.
+ * Copyright (C) 2017, 2018, Shaded Reality, All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,17 +17,19 @@
 
 package com.shadedreality.data;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.UUID;
 
-/*
+/**
  * POJO representation of a full Sudoku game, including board and actual puzzle.
  */
 @JsonIgnoreProperties("_id")
 public class Puzzle {
     private int size;
     private long randomSeed;
+    private int difficulty;
     private int[] board;
     private int[] puzzle;
     private String puzzleId;
@@ -35,22 +37,17 @@ public class Puzzle {
     public Puzzle() {
         size = 3;
         randomSeed = 0;
-        board = new int[0]; // these can't be null or we'll cause exceptions
-        puzzle = new int[0];
+        difficulty = 3;
+        board = new int[0];  // empty board until generated
+        puzzle = new int[0]; // empty puzzle until generated
         puzzleId = UUID.randomUUID().toString();
     }
 
-    public Puzzle(GameBoard board) {
-        // GameBoard must be fully generated
-        if (board == null) {
-            throw new IllegalArgumentException("Invalid board for building puzzle");
-        }
-
-        size = board.getSize();
-        randomSeed = board.getRandomSeed();
-        this.board = board.getBoard();
-        puzzle = new int[size * size * size * size];
-        puzzleId = UUID.randomUUID().toString();
+    public Puzzle(int size, long randomSeed, int difficulty) {
+        this();
+        this.size = size;
+        this.randomSeed = randomSeed;
+        this.difficulty = difficulty;
     }
 
     public int getSize() {
@@ -67,6 +64,14 @@ public class Puzzle {
 
     public void setRandomSeed(long randomSeed) {
         this.randomSeed = randomSeed;
+    }
+
+    public int getDifficulty() {
+        return difficulty;
+    }
+
+    public void setDifficulty(int difficulty) {
+        this.difficulty = difficulty;
     }
 
     public void setBoard(int[] board) {
@@ -89,6 +94,7 @@ public class Puzzle {
         return puzzleId;
     }
 
+    @JsonIgnore
     public static Puzzle getDemoPuzzle(int size) {
         Puzzle p = new Puzzle();
         p.setSize(size);
@@ -136,5 +142,28 @@ public class Puzzle {
             });
         }
         return p;
+    }
+
+    /**
+     * Check if this puzzle matches a set of parameters.
+     * Right now, only size and randomSeed are supported
+     * @param params Map containing query parameters to match
+     * @return true if ALL relevant parameters match this puzzle, false otherwise
+     */
+    boolean matchQuery(QueryParams params) {
+        if (params != null) {
+            if (params.hasSize() && (params.getSize() != size)) {
+                return false;
+            }
+
+            if (params.hasRandomSeed() && (params.getRandomSeed() != randomSeed)) {
+                return false;
+            }
+
+            if (params.hasDifficulty() && (params.getDifficulty() != difficulty)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

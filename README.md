@@ -34,11 +34,13 @@ and at the moment only MongoDB is supported. I may extend that to support other 
     <th>Path</th>
     <th>Function</th>
   </tr>
+
   <tr>
     <td>GET</td>
     <td>/sudoku</td>
-    <td>Test endpoint, should return "Hello, Sudoku!" (will be removed in the future)</td>
+    <td>Test endpoint, should return "Hello, Sudoku!". You can use this to test server availability.</td>
   </tr>
+
   <tr>
     <td>GET</td>
     <td>/sudoku/boards</td>
@@ -79,6 +81,46 @@ and at the moment only MongoDB is supported. I may extend that to support other 
     <td>/sudoku/boards/{id}/normalized</td>
     <td>Get a normalized board, used for testing and pattern matching. A normalized board has all cells in the first box arranged in sequential order, so all normalized boards of the same size have the same first box.</td>
   </tr>
+
+  <tr>
+    <td>GET</td>
+    <td>/sudoku/puzzles</td>
+    <td>
+        List puzzles that have been created. Note that not all puzzles may have been generated yet.
+        This endpoint supports query parameters, see below for a description.
+    </td>
+  </tr>
+  <tr>
+    <td>GET</td>
+    <td>/sudoku/puzzles/count</td>
+    <td>
+        Count of puzzles available. This endpoint supports query parameters, see below for a description.
+    </td>
+  </tr>
+  <tr>
+    <td>POST</td>
+    <td>/sudoku/puzzles/new</td>
+    <td>Create a new puzzle using given parameters</td>
+  </tr>
+  <tr>
+    <td>GET</td>
+    <td>/sudoku/puzzles/{id}</td>
+    <td>
+        Get a specific puzzle by id. You can pass "Demo-{size}" as ID to get a demo board.
+        Demo boards are always the same and should really only be used for frontend development
+    </td>
+  </tr>
+  <tr>
+    <td>DELETE</td>
+    <td>/sudoku/puzzles/{id}</td>
+    <td>Delete a puzzle, may not take effect immediately if the puzzle is being generated</td>
+  </tr>
+  <tr>
+    <td>GET</td>
+    <td>/sudoku/puzzles/{id}/status</td>
+    <td>Get just the status of a puzzle, only the progress and generated fields.</td>
+  </tr>
+
 </table>
 
 All data, including boards, are returned to the client in JSON objects, for example:
@@ -116,4 +158,9 @@ All data, including boards, are returned to the client in JSON objects, for exam
               (all boards returned). This parameter is ignored in the count endpoint.
 
 ### TODO
-- [ ] Add puzzle generation logic and endpoints
+- [ ] Add puzzle generation logic
+- [X] Add puzzle generator endpoints
+- [ ] Refactor DB code, put it all into one class
+- [ ] Move generator defaults to QueryParams, or at least define them somewhere...
+- [ ] Create generator executor pool to manage system load
+- [ ] GET /sudoku/{boards,puzzles}: Instead of passing a list of entire puzzles or boards, pass only a list of IDs back
