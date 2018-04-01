@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016, 2017, Shaded Reality, All Rights Reserved.
+ * Copyright (C) 2016, 2018, Shaded Reality, All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,12 +17,16 @@
 
 package com.shadedreality;
 
+import org.eclipse.jetty.server.Request;
+import org.eclipse.jetty.server.RequestLog;
+import org.eclipse.jetty.server.Response;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.glassfish.jersey.servlet.ServletContainer;
 
 import java.io.IOException;
+import java.util.Enumeration;
 import java.util.Optional;
 
 /**
@@ -31,11 +35,15 @@ import java.util.Optional;
  */
 public class Main {
     // Use PORT and DATABASE_URL from the environment to set up our server
-    public static final int PORT;
+    static final int PORT;
+    static final boolean LOG_REQUESTS;
 
     static {
         Optional<String> envPort = Optional.ofNullable(System.getenv("PORT"));
         PORT = Integer.valueOf(envPort.orElse("8080"));
+
+        Optional<String> logRequests = Optional.ofNullable(System.getenv("LOG_REQUESTS"));
+        LOG_REQUESTS = Boolean.valueOf(logRequests.orElse("false"));
     }
 
     /**
@@ -55,6 +63,11 @@ public class Main {
         Server jettyServer = new Server(PORT);
         jettyServer.setHandler(context);
 
+        if (LOG_REQUESTS) {
+            RequestLog requestLog = new RipLogger();
+            jettyServer.setRequestLog(requestLog);
+        }
+
         ServletHolder jerseyServlet = context.addServlet(ServletContainer.class, "/sudoku/*");
         jerseyServlet.setInitOrder(0);
         jerseyServlet.setInitParameter("jersey.config.server.provider.packages", "com.shadedreality.rest");
@@ -68,6 +81,23 @@ public class Main {
         }
         finally {
             jettyServer.destroy();
+        }
+    }
+
+    public static class RipLogger implements RequestLog {
+        public void log(Request request, Response response) {
+            System.out.println(request.getMethod() + "  " + request.getRequestURI() + " --> " + response.getStatus());
+            Enumeration<String> headerNames = request.getHeaderNames();
+            if (headerNames.hasMoreElements()) {
+                System.out.println("Request headers:");
+            }
+            while (headerNames.hasMoreElements()) {
+                String name = headerNames.nextElement();
+                Enumeration<String> headers = request.getHeaders(name);
+                while (headers.hasMoreElements()) {
+                    System.out.println("    " + name + ": " + headers.nextElement());
+                }
+            }
         }
     }
 }

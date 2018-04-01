@@ -100,9 +100,9 @@ public class BoardResource {
     @Path("{id}")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getBoard(@PathParam("id") String id) {
-        GameBoard gb = BoardRegistry.getRegistry().getBoard(id);
+        GameBoard gb = BoardGenerator.getBoard(id);
         if (gb == null) {
-            gb = BoardGenerator.getBoard(id);
+            gb = BoardRegistry.getRegistry().getBoard(id);
         }
         if (gb != null) {
             return Response.ok(gb).build();

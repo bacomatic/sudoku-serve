@@ -25,26 +25,12 @@ import java.util.*;
  * TODO: Create generator executor pool to avoid overloading the system.
  */
 public class PuzzleGenerator {
+    // Used to synchronize access to tasks
+    private static final Object puzzleGenLock = new Object();
     private static Map<String, PuzzleTask> taskMap = Collections.synchronizedMap(new HashMap<>());
 
     // Discourage instantiation
     private PuzzleGenerator() {}
-
-    /**
-     * Kick off a generator using the provided parameters.
-     * @param size the size of puzzle to generate
-     * @param randomSeed random seed to use for board and puzzle generation
-     * @param difficulty puzzle difficulty level to generate
-     * @return a unique identifier for this puzzle
-     */
-    public static String generatePuzzle(int size, long randomSeed, int difficulty) {
-        // Fill in extra details
-        PuzzleTask task = new PuzzleTask(size, randomSeed, difficulty);
-        String puzzleId = task.getPuzzle().getPuzzleId();
-        taskMap.put(puzzleId, task);
-        task.start(); // call after adding to map to avoid race condition
-        return puzzleId;
-    }
 
     /**
      * Kick off a generator running using the query parameters from a REST call.
@@ -55,6 +41,9 @@ public class PuzzleGenerator {
         int size = 3;
         long randomSeed = 0;
         int difficulty = 4;
+        PuzzleTask task;
+        String puzzleId;
+
         if (queryParams.hasSize()) {
             size = queryParams.getSize();
         }
@@ -64,7 +53,13 @@ public class PuzzleGenerator {
         if (queryParams.hasDifficulty()) {
             difficulty = queryParams.getDifficulty();
         }
-        return generatePuzzle(size, randomSeed, difficulty);
+        task = new PuzzleTask(size, randomSeed, difficulty);
+        puzzleId = task.getPuzzle().getPuzzleId();
+        synchronized (puzzleGenLock) {
+            taskMap.put(puzzleId, task);
+            task.start();
+        }
+        return puzzleId;
     }
 
     /**
@@ -73,7 +68,10 @@ public class PuzzleGenerator {
      * @return Puzzle if it's being generated or null if it does not exist
      */
     public static Puzzle getPuzzle(String puzzleId) {
-        PuzzleTask task = taskMap.get(puzzleId);
+        PuzzleTask task;
+        synchronized (puzzleGenLock) {
+            task = taskMap.get(puzzleId);
+        }
         if (task == null) {
             return null;
         }
@@ -82,43 +80,47 @@ public class PuzzleGenerator {
 
     public static List<Puzzle> query(QueryParams queryParams) {
         ArrayList<Puzzle> outList = new ArrayList<>();
-
-        taskMap.values().forEach(task -> {
-            Puzzle pz = task.getPuzzle();
-            if (pz.matchQuery(queryParams)) {
-                if (!queryParams.checkSkip()) {
-                    outList.add(pz);
-                    // We can't break a forEach loop, without resorting to ugly hacks
-                    // this will set a kill flag when the limit is reached so we'll skip
-                    // anythis past the limit
-                    queryParams.checkLimit();
+        synchronized (puzzleGenLock) {
+            taskMap.values().forEach(task -> {
+                Puzzle pz = task.getPuzzle();
+                if (pz.matchQuery(queryParams)) {
+                    if (!queryParams.checkSkip()) {
+                        outList.add(pz);
+                        // We can't break a forEach loop, without resorting to ugly hacks
+                        // this will set a kill flag when the limit is reached so we'll skip
+                        // anything past the limit
+                        queryParams.checkLimit();
+                    }
                 }
-            }
-        });
+            });
+        }
         return outList;
     }
 
     public static long count(QueryParams queryParams) {
         // My kingdom for some real closures!!!
         final long[] counts = new long[1];
-
-        taskMap.values().forEach(task -> {
-            Puzzle pz = task.getPuzzle();
-            if (pz != null && pz.matchQuery(queryParams)) {
-                counts[0]++;
-            }
-        });
-
+        synchronized (puzzleGenLock) {
+            taskMap.values().forEach(task -> {
+                Puzzle pz = task.getPuzzle();
+                if (pz != null && pz.matchQuery(queryParams)) {
+                    counts[0]++;
+                }
+            });
+        }
         return counts[0];
     }
     /**
      * Gets the progress of a generator.
      * @param puzzleId unique Id of the board to check
-     * @return percentage of completion
+     * @return percentage of completion or null if no puzzle with that ID being generated
      * @throws IllegalArgumentException if puzzleId does not exist in task list
      */
     public static Integer getPuzzleProgress(String puzzleId) {
-        PuzzleTask task = taskMap.get(puzzleId);
+        PuzzleTask task;
+        synchronized (puzzleGenLock) {
+            task = taskMap.get(puzzleId);
+        }
         if (task == null) {
             return null;
         }
@@ -140,7 +142,13 @@ public class PuzzleGenerator {
             progress = 50;
             puzzle.setBoard(gameBoard.getBoard());
 
+            // Update random seed if zero (random random)
+            if (puzzle.getRandomSeed() == 0) {
+                puzzle.setRandomSeed(gameBoard.getRandomSeed());
+            }
+
             // generate a bogus puzzle, for now
+            // TODO: Share PRNG between board gen and puzzle gen, finish puzzle gen first
             // FIXME: add real puzzle generator
             switch (puzzle.getSize()) {
                 case 2:
@@ -193,7 +201,13 @@ public class PuzzleGenerator {
             }
             progress = 100;
             // Register the puzzle with PuzzleRegistry
-            PuzzleRegistry.getRegistry().registerPuzzle(puzzle);
+            // This needs to be synchronized otherwise there's a very very slim chance
+            // we could get a puzzle requested by this ID *between* these two calls
+            // This works because the caller knows to check the registry if it's not found in the generator
+            synchronized (puzzleGenLock) {
+                PuzzleRegistry.getRegistry().registerPuzzle(puzzle);
+                taskMap.remove(puzzle.getPuzzleId());
+            }
         }
 
         Puzzle getPuzzle() {

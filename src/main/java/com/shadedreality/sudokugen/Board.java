@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016, 2017, Shaded Reality, All Rights Reserved.
+ * Copyright (C) 2016, 2018, Shaded Reality, All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,7 +33,6 @@ public class Board {
     private final int groupCount;
     private final int cellCount;
     private long randomSeed;
-    private boolean randomSeedSet;
 
     private final ArrayList<Cell> cells;
     private final ArrayList<CellGroup> rows;
@@ -43,7 +42,7 @@ public class Board {
     /**
      * Create a traditional 3x3 Sudoku board.
      */
-    public Board() {
+    Board() {
         this(3);
     }
     
@@ -54,7 +53,7 @@ public class Board {
      * @param dimension The number of blocks per side, or cells on each side of
      * each Block.
      */
-    public Board(int dimension) {
+    Board(int dimension) {
         // sanity check dimension, don't allow absurd numbers
         if (dimension < MIN_BOARD_SIZE || dimension > MAX_BOARD_SIZE) {
             throw new IllegalArgumentException("Invalid board dimension given ("+dimension+"), must be 2-5");
@@ -121,23 +120,22 @@ public class Board {
     public Board(int dimension, long seed) {
         this(dimension);
         randomSeed = seed;
-        randomSeedSet = true;
     }
 
     public int getSize() {
         return size;
     }
     
-    public Cell[] getCells() {
-        return cells.toArray(new Cell[cells.size()]);
+    Cell[] getCells() {
+        return cells.toArray(new Cell[0]);
     }
 
     public long getRandomSeed() {
         return randomSeed;
     }
 
-    public boolean isRandomSeedSet() {
-        return randomSeedSet;
+    public void setRandomSeed(long seed) {
+        randomSeed = seed;
     }
 
     /**
@@ -147,7 +145,7 @@ public class Board {
      * @param index block index
      * @return Block at the given index
      */
-    public CellGroup getBlock(int index) {
+    CellGroup getBlock(int index) {
         if (index < 0 || index > blocks.size()) {
             throw new IndexOutOfBoundsException("Invalid block index: "+index);
         }
@@ -158,11 +156,11 @@ public class Board {
      * Resets the board to a clean state. All cells are reset to -1 value so the
      * board may be reused for a generator.
      */
-    public void reset() {
-        blocks.forEach(b -> b.reset());
+    void reset() {
+        blocks.forEach(CellGroup::reset);
     }
     
-    public Stream<CellGroup> blockStream() {
+    Stream<CellGroup> blockStream() {
         return blocks.stream();
     }
     
@@ -178,19 +176,19 @@ public class Board {
      *
      * @param r Consumer defining the method to be called on each block.
      */
-    public void forEachBlock(Consumer<CellGroup> r) {
+    void forEachBlock(Consumer<CellGroup> r) {
         blocks.forEach(r);
     }
     
-    public void forEachRow(Consumer<CellGroup> r) {
+    void forEachRow(Consumer<CellGroup> r) {
         rows.forEach(r);
     }
     
-    public void forEachColumn(Consumer<CellGroup> r) {
+    void forEachColumn(Consumer<CellGroup> r) {
         columns.forEach(r);
     }
 
-    public void print() {
+    void print() {
         StringBuilder sb = new StringBuilder("    ");
         for (int ii = 0; ii < groupCount; ii++) {
             sb.append("-----");

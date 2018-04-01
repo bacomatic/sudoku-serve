@@ -29,6 +29,7 @@ import java.util.function.Consumer;
  * TODO: Create generator executor pool to avoid overloading the system.
  */
 public class BoardGenerator {
+    private static final Object generatorLock = new Object();
     private static Map<String, GeneratorTask> taskMap = Collections.synchronizedMap(new HashMap<>());
 
     // Discourage instantiation
@@ -37,13 +38,15 @@ public class BoardGenerator {
     /**
      * Kick off a generator running on the provided board.
      * @param size size of the board to generate
-     * @param randomSeed random seed to be used
+     * @param randomSeed random seed to be used, must be a valid see at this point
      * @return a unique identifier for this board
      */
     public static String generateBoard(int size, long randomSeed, Consumer<GameBoard> finishProc) {
         GeneratorTask task = new GeneratorTask(size, randomSeed, finishProc);
         String boardId = task.getGameBoard().getBoardId();
-        taskMap.put(boardId, task);
+        synchronized (generatorLock) {
+            taskMap.put(boardId, task);
+        }
         task.start(); // call after adding to map to avoid race condition
         return boardId;
     }
@@ -74,7 +77,10 @@ public class BoardGenerator {
      * @return GameBoard if it's being generated or null if it does not exist
      */
     public static GameBoard getBoard(String boardId) {
-        GeneratorTask task = taskMap.get(boardId);
+        GeneratorTask task;
+        synchronized (generatorLock) {
+            task = taskMap.get(boardId);
+        }
         if (task == null) {
             return null;
         }
@@ -84,18 +90,20 @@ public class BoardGenerator {
     public static List<GameBoard> query(QueryParams queryParams) {
         ArrayList<GameBoard> outList = new ArrayList<>();
 
-        taskMap.values().forEach(task -> {
-            GameBoard gb = task.getGameBoard();
-            if (gb.matchQuery(queryParams)) {
-                if (!queryParams.checkSkip()) {
-                    outList.add(gb);
-                    // We can't break a forEach loop, without resorting to ugly hacks
-                    // this will set a kill flag when the limit is reached so we'll skip
-                    // anything past the limit
-                    queryParams.checkLimit();
+        synchronized (generatorLock) {
+            taskMap.values().forEach(task -> {
+                GameBoard gb = task.getGameBoard();
+                if (gb.matchQuery(queryParams)) {
+                    if (!queryParams.checkSkip()) {
+                        outList.add(gb);
+                        // We can't break a forEach loop, without resorting to ugly hacks
+                        // this will set a kill flag when the limit is reached so we'll skip
+                        // anything past the limit
+                        queryParams.checkLimit();
+                    }
                 }
-            }
-        });
+            });
+        }
         return outList;
     }
 
@@ -103,13 +111,14 @@ public class BoardGenerator {
         // My kingdom for some real closures!!!
         final long[] counts = new long[1];
 
-        taskMap.values().forEach(task -> {
-            GameBoard gb = task.getGameBoard();
-            if (gb != null && gb.matchQuery(queryParams)) {
-                counts[0]++;
-            }
-        });
-
+        synchronized (generatorLock) {
+            taskMap.values().forEach(task -> {
+                GameBoard gb = task.getGameBoard();
+                if (gb != null && gb.matchQuery(queryParams)) {
+                    counts[0]++;
+                }
+            });
+        }
         return counts[0];
     }
     /**
@@ -119,7 +128,10 @@ public class BoardGenerator {
      * @throws IllegalArgumentException if boardId does not exist in task list
      */
     public static Integer getBoardProgress(String boardId) {
-        GeneratorTask task = taskMap.get(boardId);
+        GeneratorTask task;
+        synchronized (generatorLock) {
+            task = taskMap.get(boardId);
+        }
         if (task == null) {
             return null;
         }
@@ -146,12 +158,16 @@ public class BoardGenerator {
                 progress = 100;
 
                 gameBoard.setBoard(board.toIntArray());
+                if (randomSeed == 0) {
+                    // If zero random seed, get actual seed used
+                    gameBoard.setRandomSeed(board.getRandomSeed());
+                }
 
-                // Add to database
-                BoardRegistry.getRegistry().registerBoard(gameBoard);
-
-                // remove from taskMap now that done
-                taskMap.remove(gameBoard.getBoardId());
+                // Move from taskMap to database
+                synchronized (generatorLock) {
+                    BoardRegistry.getRegistry().registerBoard(gameBoard);
+                    taskMap.remove(gameBoard.getBoardId());
+                }
 
                 // call finishProc if set
                 if (finishProc != null) {

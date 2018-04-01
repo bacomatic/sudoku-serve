@@ -106,9 +106,11 @@ public class PuzzleResource {
             }
             throw new NotFoundException("Demo Puzzle with id " + id + " does not exist");
         }
-        Puzzle pz = PuzzleRegistry.getRegistry().getPuzzle(id);
+        // Check generator first, otherwise there's a very slim chance we'll
+        // end up checking while the puzzle is transitioning between generator and registry
+        Puzzle pz = PuzzleGenerator.getPuzzle(id);
         if (pz == null) {
-            pz = PuzzleGenerator.getPuzzle(id);
+            pz = PuzzleRegistry.getRegistry().getPuzzle(id);
         }
         if (pz != null) {
             return Response.ok(pz).build();

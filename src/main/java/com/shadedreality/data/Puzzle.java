@@ -19,6 +19,8 @@ package com.shadedreality.data;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 
 import java.util.UUID;
 
@@ -34,7 +36,7 @@ public class Puzzle {
     private int[] puzzle;
     private String puzzleId;
 
-    public Puzzle() {
+    private Puzzle() {
         size = 3;
         randomSeed = 0;
         difficulty = 3;
@@ -43,7 +45,7 @@ public class Puzzle {
         puzzleId = UUID.randomUUID().toString();
     }
 
-    public Puzzle(int size, long randomSeed, int difficulty) {
+    Puzzle(int size, long randomSeed, int difficulty) {
         this();
         this.size = size;
         this.randomSeed = randomSeed;
@@ -58,6 +60,12 @@ public class Puzzle {
         this.size = size;
     }
 
+    /*
+     * If we don't use the toString serializer, we run the risk of having
+     * the long value stored as a Number, which may overflow JSON implementations
+     * so it ends up being stored as a JSON object instead of a Number.
+     */
+    @JsonSerialize(using = ToStringSerializer.class)
     public long getRandomSeed() {
         return randomSeed;
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016, 2017, Shaded Reality, All Rights Reserved.
+ * Copyright (C) 2016, 2018, Shaded Reality, All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,6 +16,8 @@
  */
 
 package com.shadedreality.sudokugen;
+
+import com.shadedreality.data.Randomeister;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -51,10 +53,10 @@ public class Generator {
     // this will be used to store the first pattern where a new cell select
     // count is found. The count will be used as an index into a map
     static class BlockPattern {
-        public long patternCount; // how many variations were found using this pattern (map key)
-        public long iteration;    // which iteration this was found in
-        public int[] pattern;    // the first pattern (indices of blocks used in order)
-        public long bpCount;      // how many times this patternCount has been encountered
+        long patternCount; // how many variations were found using this pattern (map key)
+        long iteration;    // which iteration this was found in
+        int[] pattern;    // the first pattern (indices of blocks used in order)
+        long bpCount;      // how many times this patternCount has been encountered
     }
 
     // loop over remaining blocks, recursively calling myself for each block
@@ -157,18 +159,17 @@ public class Generator {
         blockSize = size * size;
     }
 
-    public void setSeed(long seed) {
-        genRandom.setSeed(seed);
-    }
-
     public void generate() {
         int count = 0;
         int maxCount = MAX_GEN_COUNTS[board.getSize()];
 
         boolean success;
-        if (board.isRandomSeedSet()) {
-            setSeed(board.getRandomSeed());
+        long seed = board.getRandomSeed();
+        if (seed == 0) {
+            seed = Randomeister.randomLong();
+            board.setRandomSeed(seed);
         }
+        genRandom.setSeed(seed);
 
         StringBuilder sb;
         do {
@@ -204,6 +205,7 @@ public class Generator {
         // might require backtracking
         // start at top left and go diagonally to bottom right
         // skip length is size+1, e.g., 4 for 3x3, 5 for 4x4
+        // FIXME: This is completely broken right now, I need to go back to my original code and figure out why :(
 //        for (int ii = 0; ii < blockSize; ii += size+1) {
 //            // pre-fill all the cells in this block with random numbers
 //            CellGroup block = board.getBlock(ii);
@@ -257,10 +259,5 @@ public class Generator {
             sb.append("gen ").append(ii).append(" pattern count = ").append(bi.get()).append("\n");
         }
         return !abort.get();
-    }
-
-    private int random(int min, int max) {
-        // bound is exclusive, so add 1 to make max inclusive
-        return genRandom.nextInt(max-min+1)+min;
     }
 }
