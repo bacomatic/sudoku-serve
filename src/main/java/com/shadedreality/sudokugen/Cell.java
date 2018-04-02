@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016, Shaded Reality, All Rights Reserved.
+ * Copyright (C) 2016, 2018, Shaded Reality, All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,133 +14,135 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 package com.shadedreality.sudokugen;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.Random;
 
 /**
  * Individual cell in a Sudoku Board. Each cell is assigned a value at generation
  * time and tracks a guessed value when playing. Each cell also keeps track of
- * it's row, column and block to aid in board generation and gameplay.
- * 
- * @author ddehaven
+ * it's row, column and block to aid in board generation.
  */
 public class Cell {
-    private int generatedValue;
-    private int guessedValue;
-    
+    private int value;
+
     private CellGroup row;
     private CellGroup column;
     private CellGroup block;
-    
-    private boolean locked;
-    
-    private volatile List<Cell> otherCells = null;
-    
+
+    private final List<Cell> peerCells = new ArrayList<>();
+    private final List<Integer> availableValues = new ArrayList<>();
+
     public Cell() {
-        generatedValue = guessedValue = -1;
+        value = -1;
     }
     
-    private synchronized Stream<Cell> getCellStream() {
+    private List<Cell> getPeerCells() {
         if (row == null || column == null || block == null) {
             // not finished initializing yet...
             throw new InternalError("Cell is not finished being initialized!");
         }
-        if (otherCells == null) {
-            Stream<Cell> rowsNotMe = row.stream().filter(c -> c != this);
-            Stream<Cell> colsNotMe = column.stream().filter(c -> c != this);
-            Stream<Cell> blockNotMe = block.stream().filter(c -> c != this);
-            
-            // Concat all three streams and use distinct to remove duplicates
-            // each stream should contain (NxN * 3) - 1 - N - N
-            // -1 from the block, -N from the row and -N from the column
-            // for example, for 3x3, each stream should contain:
-            // (3x3 x 3) - 1 - 3 - 3 = (9 x 3) - 7 = 27 - 7 = 20
-            otherCells = Stream.concat(Stream.concat(rowsNotMe, colsNotMe), blockNotMe)
-                         .distinct()
-                         .collect(Collectors.toList());
+
+        // initialize if necessary
+        synchronized (peerCells) {
+            if (peerCells.isEmpty()) {
+                row.forEach((c) -> {
+                    if (c != this && !peerCells.contains(c)) {
+                        peerCells.add(c);
+                    }
+                });
+                column.forEach((c) -> {
+                    if (c != this && !peerCells.contains(c)) {
+                        peerCells.add(c);
+                    }
+                });
+                block.forEach((c) -> {
+                    if (c != this && !peerCells.contains(c)) {
+                        peerCells.add(c);
+                    }
+                });
+            }
         }
-        return otherCells.stream();
-    }
-    // We don't know the dimensions of the board, so we won't check value bounds
-    // here. That will be up to the board generator itself.
-    // though, all we need to do is check the dimensions of row/col/block
-    public boolean canSetValue(int v) {
-        if (generatedValue == v || v == -1) {
-            return true; // already set or can always set -1
-        }
-        return !getCellStream().anyMatch(c -> c.getValue() == v);
+        return peerCells;
     }
 
-    public boolean setValue(int v) {
-        if (locked) {
-            return false;
-        }
-        if (canSetValue(v)) {
-            generatedValue = v;
-            return true;
-        }
-        return false;
-    }
-    
     public int getValue() {
-        return generatedValue;
-    }
-    
-    // when locked, value cannot change
-    public void setLocked(boolean b) {
-        locked = b;
-    }
-    
-    public boolean isLocked() {
-        return locked;
-    }
-    
-    public void setGuess(int g) {
-        guessedValue = g;
-    }
-    
-    public int getGuess() {
-        return guessedValue;
+        return value;
     }
     
     public void setRow(CellGroup r) {
         row = r;
     }
     
-    public CellGroup getRow() {
-        return row;
-    }
-    
     public void setColumn(CellGroup c) {
         column = c;
-    }
-    
-    public CellGroup getColumn() {
-        return column;
     }
     
     public void setBlock(CellGroup b) {
         block = b;
     }
     
-    public CellGroup getBlock() {
-        return block;
+    public void reset() {
+        value = -1;
+        availableValues.clear();
     }
 
-    public void reset() {
-        locked = false;
-        generatedValue = -1;
-        guessedValue = -1;
+    /**
+     * Called when a new cell is being processed in the generator.
+     * @return the number of available values
+     */
+    public int calculateAvailableValues() {
+        // start clean
+        reset();
+
+        // Start with all values
+        for (int ii = 0; ii < block.getSize(); ii++) {
+            availableValues.add(ii);
+        }
+
+        // Filter out used values
+        for (Cell c : getPeerCells()) {
+            if (c.getValue() != -1) {
+                availableValues.remove((Integer)c.getValue());
+            }
+        }
+
+        return availableValues.size();
     }
-    
+
+    /**
+     * Called when backtracking during board generation. This removes the current value from
+     * the list of available values so it cannot be chosen.
+     * @return the number of remaining available values
+     */
+    public int invalidateValue() {
+        // Must box, or it will assume value is index
+        availableValues.remove((Integer)value);
+        value = -1;
+        return availableValues.size();
+    }
+
+    /**
+     * Choose a random value from the list of available values.
+     * @param r PRNG used by the generator
+     */
+    public void chooseRandomValue(Random r) {
+        if (availableValues.size() == 1) {
+            value = availableValues.get(0);
+        } else {
+            int index = r.nextInt(availableValues.size());
+            value = availableValues.get(index);
+        }
+    }
+
     /**
      * Force the value of the cell with no checks.
      * @param v 
      */
     public void forceValue(int v) {
-        generatedValue = v;
+        value = v;
     }
 }

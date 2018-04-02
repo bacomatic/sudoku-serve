@@ -19,7 +19,6 @@ package com.shadedreality.sudokugen;
 
 import java.util.ArrayList;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 
 /**
  * A Board is a container for holding a generated Sudoku board.
@@ -27,7 +26,7 @@ import java.util.stream.Stream;
  */
 public class Board {
     public static final int MIN_BOARD_SIZE = 2;
-    public static final int MAX_BOARD_SIZE = 3; // eventually 4 or 5, once I fix the gen algorithm
+    public static final int MAX_BOARD_SIZE = 4;
 
     private final int size; // dimension
     private final int groupCount;
@@ -139,29 +138,11 @@ public class Board {
     }
 
     /**
-     * Get a block with the given index. Blocks are indexed 1..N starting at top
-     * left and ending at bottom right. So, a 3x3 boards blocks will be TL, TM,
-     * TR, ML, MM, MR, BL, BM, BR
-     * @param index block index
-     * @return Block at the given index
-     */
-    CellGroup getBlock(int index) {
-        if (index < 0 || index > blocks.size()) {
-            throw new IndexOutOfBoundsException("Invalid block index: "+index);
-        }
-        return blocks.get(index);
-    }
-    
-    /**
      * Resets the board to a clean state. All cells are reset to -1 value so the
      * board may be reused for a generator.
      */
     void reset() {
         blocks.forEach(CellGroup::reset);
-    }
-    
-    Stream<CellGroup> blockStream() {
-        return blocks.stream();
     }
     
     /**

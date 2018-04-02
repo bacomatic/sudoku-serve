@@ -19,245 +19,119 @@ package com.shadedreality.sudokugen;
 
 import com.shadedreality.data.Randomeister;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /**
- *
- * @author ddehaven
+ * Simple generator that uses backtracking. May not be the best in the world, but it seems to work for all supported
+ * sizes.
  */
 public class Generator {
+    //                                           0  1  2  3        4          5
+    private static final int[] MAX_GEN_COUNTS = {0, 0, 0, 1000000, 100000000, 1000000000};
+
+    // Board to generate, we'll start with the params provided in this object
+    // and when finished populate the board cell array
     private final Board board;
 
-    private final int[] MAX_GEN_COUNTS = {0, 0, 1000000, 1000000, 10000000, 100000000};
-    
-    // map we'll store results in
-    private final int blockSize;
-    private final HashMap<Long, BlockPattern> patternMap = new HashMap<>();
-    private long blockIteration = 0;
-
+    private final int cellCount;
     private final Random genRandom = new Random();
-
     private Consumer<Integer> genMonitor = null;
+    private boolean randomizedSeed = false;
 
-    // iterations and counts can easily overflow int, so uze longs to store
-    // such things
-    
-    // class to hold a specific board pattern
-    // this will be used to store the first pattern where a new cell select
-    // count is found. The count will be used as an index into a map
-    static class BlockPattern {
-        long patternCount; // how many variations were found using this pattern (map key)
-        long iteration;    // which iteration this was found in
-        int[] pattern;    // the first pattern (indices of blocks used in order)
-        long bpCount;      // how many times this patternCount has been encountered
-    }
-
-    // loop over remaining blocks, recursively calling myself for each block
-    // in remainder
-    private void blockLoop(ArrayList<Integer> blockSequence, ArrayList<Integer> remainder) {
-        if (remainder.size() > 0) {
-            remainder.stream()
-                     .forEach(blockIndex -> {
-                        ArrayList<Integer> newSequence = (ArrayList)blockSequence.clone();
-                        newSequence.add(blockIndex);
-
-                        ArrayList<Integer> newRemainder = (ArrayList)remainder.clone();
-                        newRemainder.remove(blockIndex);
-                        blockLoop(newSequence, newRemainder);
-                    });
-        } else {
-            blockIteration++;
-            // end, run the pattern
-            long count = doPatternScan(blockSequence);
-            BlockPattern bp = patternMap.get(count);
-            if (bp == null) {
-                // new count, create a new entry
-                bp = new BlockPattern();
-                bp.patternCount = count;
-                bp.iteration = blockIteration;
-                bp.bpCount = 1;
-
-                // have to unbox the array... streams are our friend here
-                bp.pattern = blockSequence.stream()
-                        .mapToInt(Integer::intValue)
-                        .toArray();
-
-                System.out.printf("  new pattern count: %d, iteration %d\n", count, blockIteration);
-                patternMap.put(count, bp);
-            } else {
-                // just bump the count
-                bp.bpCount++;
-            }
-        }
-    }
-
-    private long doPatternScan(ArrayList<Integer> pattern) {
-        board.reset();
-        AtomicBoolean abort = new AtomicBoolean(false);
-        AtomicLong bi = new AtomicLong(0);
-
-        pattern.stream()
-               .forEachOrdered(blockIndex -> {
-            // stop processing if we hit a snag
-            if (abort.get()) {
-                return;
-            }
-            CellGroup block = board.getBlock(blockIndex);
-            List<Cell> ac = block.getAvailableCells(1);
-            if (!ac.isEmpty()) {
-                int index = genRandom.nextInt(ac.size());
-                ac.get(index).setValue(1);
-
-                long patternCount = bi.longValue();
-                if (patternCount > 0) {
-                    patternCount *= ac.size();
-                } else {
-                    patternCount = ac.size();
-                }
-                bi.getAndSet(patternCount);
-            } else {
-                abort.getAndSet(true);
-            }
-        });
-
-        return bi.longValue();
-    }
-
-    public void scanPatterns() {
-        // reset things
-        patternMap.clear();
-        blockIteration = 0;
-
-        ArrayList<Integer> startSequence = new ArrayList<>(); // empty list
-        ArrayList<Integer> startRemainder = new ArrayList<>(blockSize);
-        for (int ii = 0; ii < blockSize; ii++) {
-            startRemainder.add(ii);
-        }
-
-        // dump the contents of the pattern map
-        blockLoop(startSequence, startRemainder);
-
-        System.out.printf("Scanned patterns over %d iterations\n", blockIteration);
-        System.out.printf("Found %d distinct pattern counts\n", patternMap.size());
-        System.out.println("");
-    }
-
+    private int lastPct = 0; // to prevent us from "progressing" backwards
     public void setMonitor(Consumer<Integer> monitor) {
         genMonitor = monitor;
+    }
+
+    private void monitorUpdate(int loc, int max) {
+        if (genMonitor == null) return;
+
+        int pct = loc * 100 / max;
+        if (pct > lastPct) {
+            genMonitor.accept(pct);
+            lastPct = pct;
+        }
     }
 
     public Generator(Board b) {
         board = b;
         int size = board.getSize();
-        blockSize = size * size;
-    }
+        cellCount = size * size * size * size;
 
-    public void generate() {
-        int count = 0;
-        int maxCount = MAX_GEN_COUNTS[board.getSize()];
-
-        boolean success;
         long seed = board.getRandomSeed();
         if (seed == 0) {
             seed = Randomeister.randomLong();
-            board.setRandomSeed(seed);
+            randomizedSeed = true;
+            board.setRandomSeed(seed); // update board with actual seed
         }
         genRandom.setSeed(seed);
-
-        StringBuilder sb;
-        do {
-            sb = new StringBuilder();
-            success = doGenerate(sb);
-            if (!success) {
-                count++;
-            }
-        } while (!success && count < maxCount);
-
-        if (success) {
-            System.out.println("Generated board after "+count+" tries:");
-            System.out.println(sb.toString());
-        } else {
-            System.out.printf("No boards after %d tries, giving up\n", maxCount);
-        }
     }
 
-    private void monitorUpdate(int loc, int max) {
-        int pct = loc * 100 / max;
-        genMonitor.accept(pct);
-    }
+    public boolean generate() {
+        int tryCount = 5;
+        int loopCount = 0;
+        int maxCount = MAX_GEN_COUNTS[board.getSize()];
+        int cellIndex = 0;
+        boolean backtrack = false;
+        // keep a local copy of this for quick access
+        // From each cell we can access what we need
+        Cell[] cells = board.getCells();
 
-    private boolean doGenerate(StringBuilder sb) {
-        int size = board.getSize();
-        int maxCell = size * size + 1;
-        final AtomicInteger bi = new AtomicInteger(0);
-        final AtomicBoolean abort = new AtomicBoolean(false);
-
+        // clear any existing cells
         board.reset();
 
-        // pre-generate one diagonal, this significantly reduces overhead but
-        // might require backtracking
-        // start at top left and go diagonally to bottom right
-        // skip length is size+1, e.g., 4 for 3x3, 5 for 4x4
-        // FIXME: This is completely broken right now, I need to go back to my original code and figure out why :(
-//        for (int ii = 0; ii < blockSize; ii += size+1) {
-//            // pre-fill all the cells in this block with random numbers
-//            CellGroup block = board.getBlock(ii);
-//            List<Cell> cells = block.getUnset();
-//            for (int vv = 1; vv < maxCell; vv++) {
-//                // get a random cell from those remaining, assign it the next
-//                // number
-//                Cell c = cells.get(random(0, cells.size()-1));
-//                // make sure we don't try to set it again
-//                cells.remove(c);
-//                c.setValue(vv);
-//
-//                // lock it so the generator below doesn't try to set it
-//                c.setLocked(true);
-//            }
-//            block.setLocked(true);
-//        }
-
-        for (int ii = 1; ii < maxCell; ii++) {
-            monitorUpdate(ii, maxCell);
-            bi.getAndSet(0);
-            int cellValue = ii;
-            board.blockStream()
-                 .filter(b -> !b.isLocked())
-                 .forEach(block -> {
-                // stop processing if we hit a snag
-                if (abort.get()) {
-                    return;
-                }
-                List<Cell> ac = block.getAvailableCells(cellValue);
-                if (!ac.isEmpty()) {
-                    int index = genRandom.nextInt(ac.size());
-                    ac.get(index).setValue(cellValue);
-
-                    int patternCount = bi.intValue();
-                    if (patternCount > 0) {
-                        patternCount *= ac.size();
-                    } else {
-                        patternCount = ac.size();
-                    }
-                    bi.getAndSet(patternCount);
-                } else {
-                    abort.getAndSet(true);
-                }
-            });
-
-            if (abort.get()) {
-                sb.append("Finished early.. need stepback code!!").append("\n");
-                break;
+        while (cellIndex < cellCount) {
+            if (cellIndex < 0) {
+                throw new InternalError("Cell index should not fall below zero!");
             }
-            sb.append("gen ").append(ii).append(" pattern count = ").append(bi.get()).append("\n");
+            monitorUpdate(cellIndex, cellCount);
+
+            loopCount++;
+            if (maxCount > 0 && loopCount > maxCount) {
+                // Report for posterity, and so we can check this in the future.
+                System.out.println("Loop limit reached! ("+maxCount+"), giving up board generation.");
+                System.out.println("The seed that caused this: "+board.getRandomSeed()+" with size "+board.getSize());
+                board.reset();
+                // if we chose a randomized seed, try another
+                if (randomizedSeed && tryCount > 0) {
+                    board.setRandomSeed(Randomeister.randomLong());
+                    genRandom.setSeed(board.getRandomSeed());
+
+                    tryCount--;
+                    loopCount = 0;
+                    cellIndex = 0;
+                    backtrack = false;
+                    continue;
+                }
+                return false;
+            }
+
+            Cell cc = cells[cellIndex];
+            if (backtrack) {
+                // continue to backtrack until we get to a cell that has at least one number available
+                if (cc.invalidateValue() == 0) {
+                    cc.reset();
+                    cellIndex--;
+                    continue;
+                }
+                backtrack = false;
+            } else {
+                if (cc.calculateAvailableValues() == 0) {
+                    // no values available
+                    backtrack = true;
+                    cellIndex--;
+                    continue;
+                }
+            }
+
+            // Randomly choose an available value
+            cc.chooseRandomValue(genRandom);
+            cellIndex++;
         }
-        return !abort.get();
+
+        // If we get this far, it succeeded
+        System.out.println("Generated board after "+loopCount+" tries");
+        return true;
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016, 2017, Shaded Reality, All Rights Reserved.
+ * Copyright (C) 2016, 2018, Shaded Reality, All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * A group of cells. Rather than having a separate class for rows, columns and
@@ -31,42 +30,29 @@ import java.util.stream.Stream;
  */
 public class CellGroup {
     private final int width, height;
-    private boolean locked = false;
-    
-    // Use ArrayList instead of Cell[] so we can make use of lambdas and streams
-    // for efficiency
-    private final ArrayList<Cell> cells = new ArrayList<>();
-    
+
+    // Use List instead of Cell[] so we can make use of lambdas and streams
+    private final List<Cell> cells;
+
     public CellGroup(int width, int height) {
         this.width = width;
         this.height = height;
+        this.cells = new ArrayList<>(width * height);
         init(width * height);
     }
     
     public CellGroup(int size) {
         width = size;
         height = 1;
+        cells = new ArrayList<>(size);
         init(size);
     }
 
     private void init(int size) {
         // fill cells with null values so it's not empty
-        cells.ensureCapacity(size);
         for (int ii = 0; ii < size; ii++) {
             cells.add(null);
         }
-    }
-
-    public void setLocked(boolean b) {
-        locked = b;
-    }
-    
-    public boolean isLocked() {
-        return locked;
-    }
-    
-    public Stream<Cell> stream() {
-        return cells.stream();
     }
 
     public void forEach(Consumer<Cell> p) {
@@ -129,47 +115,7 @@ public class CellGroup {
                     .filter(c -> c.getValue() == -1)
                     .collect(Collectors.toList());
     }
-    
-    /**
-     * Return an array of <code>Cells</code> that are unset (value == -1) and
-     * can be set to the given value.
-     * @param value the value to test
-     * @return Cell array, possibly empty if no cells are available
-     */
-    public List<Cell> getAvailableCells(int value) {
-        return getUnset().stream()
-                    .filter(c -> c.canSetValue(value))
-                    .collect(Collectors.toList());
-    }
-    
-    /**
-     * Find the cell with the given value.
-     * @param value the value to find
-     * @return cell if found, null otherwise
-     */
-    public Cell find(int value) {
-        for (Cell c : cells) {
-            if (c.getValue() == value) {
-                return c;
-            }
-        }
-        return null;
-    }
-    
-    /**
-     * Find the cell with the given guess.
-     * @param guess the guess value to search for
-     * @return cell with the given guess or null if not found
-     */
-    public Cell findGuess(int guess) {
-        for (Cell c : cells) {
-            if (c.getGuess() == guess) {
-                return c;
-            }
-        }
-        return null;
-    }
-    
+
     /**
      * Validate each cell in this group.
      * Rules:
@@ -181,7 +127,7 @@ public class CellGroup {
     public boolean validate() {
         int size = cells.size();
         // do null check first, so we don't have to do it twice in the next loops
-        if (!cells.stream().noneMatch((c) -> (c == null))) {
+        if (cells.stream().anyMatch((c) -> (c == null))) {
             return false;
         }
 
@@ -206,9 +152,7 @@ public class CellGroup {
     }
     
     public void reset() {
-        locked = false;
-        cells.stream()
-             .forEachOrdered((c) -> c.reset());
+        cells.forEach(Cell::reset);
     }
     
     /**

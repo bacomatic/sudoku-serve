@@ -154,7 +154,15 @@ public class BoardGenerator {
                 // Set the monitor to setProgress, so we can see how far along it is
                 progress = 0;
                 generator.setMonitor(this::setProgress);
-                generator.generate();
+                if (!generator.generate()) {
+                    // Failed to generate board (???)
+                    synchronized (generatorLock) {
+                        // Remove the failed board so it doesn't appear in the list
+                        taskMap.remove(gameBoard.getBoardId());
+                    }
+                    // FIXME: error reporting? put bad seeds in the DB?
+                    return;
+                }
                 progress = 100;
 
                 gameBoard.setBoard(board.toIntArray());
