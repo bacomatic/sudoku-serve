@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016, 2017, Shaded Reality, All Rights Reserved.
+ * Copyright (C) 2016, 2018, Shaded Reality, All Rights Reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,8 @@ package com.shadedreality.data;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.shadedreality.sudokugen.Board;
 import org.bson.codecs.pojo.annotations.BsonDiscriminator;
 
@@ -68,6 +70,7 @@ public class GameBoard {
         this.size = size;
     }
 
+    @JsonSerialize(using = ToStringSerializer.class)
     public long getRandomSeed() {
         return randomSeed;
     }

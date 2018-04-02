@@ -28,7 +28,8 @@ import java.util.List;
 /**
  * Puzzle generator endpoints
  *
- * GET    - /puzzles                - List pre-generated puzzles. Accepts query parameters (see below)
+ * GET    - /puzzles                - List pre-generated puzzles. Accepts query parameters (see below). Only returns
+ *                                    puzzle ID, size and random seed.
  * GET    - /puzzles/count          - Number of puzzles available, accepts same query params except skip and limit
  * POST   - /puzzles/new            - Create a new puzzle using given parameters
  * GET    - /puzzles/{id}           - Get a specific puzzle (even if not fully generated yet). Demo puzzles are
@@ -42,15 +43,15 @@ import java.util.List;
 public class PuzzleResource {
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public List<Puzzle> getPuzzleList(@Context UriInfo uriInfo) {
+    public List<ListInfo> getPuzzleList(@Context UriInfo uriInfo) {
         QueryParams queryParams = new QueryParams(uriInfo.getQueryParameters());
-        List<Puzzle> outList = new ArrayList<>();
+        List<ListInfo> outList = new ArrayList<>();
 
         if (queryParams.isQueryGenerator()) {
-            outList.addAll(PuzzleGenerator.query(queryParams));
+            PuzzleGenerator.query(queryParams).forEach(puzzle -> outList.add(new ListInfo(puzzle)));
         }
         if (queryParams.isQueryDatabase() && !queryParams.isLimitReached()) {
-            outList.addAll(PuzzleRegistry.getRegistry().query(queryParams));
+            PuzzleRegistry.getRegistry().query(queryParams).forEach(puzzle -> outList.add(new ListInfo(puzzle)));
         }
 
         return outList;

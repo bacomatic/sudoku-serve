@@ -17,10 +17,7 @@
 
 package com.shadedreality.rest;
 
-import com.shadedreality.data.BoardGenerator;
-import com.shadedreality.data.BoardRegistry;
-import com.shadedreality.data.GameBoard;
-import com.shadedreality.data.QueryParams;
+import com.shadedreality.data.*;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.*;
@@ -31,7 +28,8 @@ import java.util.List;
 /**
  * Board generator endpoints
  *
- * GET    - /boards                 - List pre-generated boards. Accepts query parameters (see below)
+ * GET    - /boards                 - List pre-generated boards. Accepts query parameters (see below). Only returns
+ *                                    board ID, size and random seed.
  * GET    - /boards/count           - Number of boards, accepts same query params except skip and limit
  * POST   - /boards/new             - Create a new board using given parameters
  * GET    - /boards/{id}            - Get a specific board (even if not fully generated yet)
@@ -45,15 +43,15 @@ import java.util.List;
 public class BoardResource {
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public List<GameBoard> getBoards(@Context UriInfo uriInfo) {
+    public List<ListInfo> getBoards(@Context UriInfo uriInfo) {
         QueryParams queryParams = new QueryParams(uriInfo.getQueryParameters());
-        List<GameBoard> outList = new ArrayList<>();
+        List<ListInfo> outList = new ArrayList<>();
 
         if (queryParams.isQueryGenerator()) {
-            outList.addAll(BoardGenerator.query(queryParams));
+            BoardGenerator.query(queryParams).forEach(board -> outList.add(new ListInfo(board)));
         }
         if (queryParams.isQueryDatabase() && !queryParams.isLimitReached()) {
-            outList.addAll(BoardRegistry.getRegistry().query(queryParams));
+            BoardRegistry.getRegistry().query(queryParams).forEach(board -> outList.add(new ListInfo(board)));
         }
 
         return outList;

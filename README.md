@@ -46,7 +46,9 @@ and at the moment only MongoDB is supported. I may extend that to support other 
     <td>/sudoku/boards</td>
     <td>
         List boards that have been created. Note that not all boards may have been generated yet.
-        This endpoint supports query parameters, see below for a description.
+        This endpoint supports query parameters, see below for a description. The returned list only
+        contains board ID, size and random seed. To get full board information you will need to request
+        it by ID.
     </td>
   </tr>
   <tr>
@@ -87,7 +89,8 @@ and at the moment only MongoDB is supported. I may extend that to support other 
     <td>/sudoku/puzzles</td>
     <td>
         List puzzles that have been created. Note that not all puzzles may have been generated yet.
-        This endpoint supports query parameters, see below for a description.
+        This endpoint supports query parameters, see below for a description. Only returns puzzle ID, size
+        and random seed. To get full puzzle data, you will need to request it by ID.
     </td>
   </tr>
   <tr>
@@ -127,35 +130,45 @@ All data, including boards, are returned to the client in JSON objects, for exam
 ```
 {
     "board": [...],
-    "generated": false,
-    "id": "b9ade00f-7ab4-4dd4-96fa-f8a12a203afa",
-    "progress": 30,
+    "boardId": "b9ade00f-7ab4-4dd4-96fa-f8a12a203afa",
     "randomSeed": 0,
     "size": 3
 }
 ```
 
-### Fields:
+### Board Fields:
 * **board** - Array of ints, in cell order starting at the top left and going horizontally to the bottom right
-* **generated** - Flag indicating whether the board has been fully generated or not
-* **id** - UUID generated for this board, use this when requesting specific boards in the REST API
-* **progress** - Shows the approximate percentage done while generating. This value can jump around wildly due to the nature of how
-             the board generation algorithm works.
+* **boardId** - UUID generated for this board, use this when requesting specific boards in the REST API
 * **randomSeed** - (64 bit long integer) Random number generator seed used to create this board, passing zero will give you a random seed.
-                   Passing the same seed and size should produce the same board each time, unless or until the underlying board algorithm
-                   changes.
+                   Passing the same non-zero seed and size should produce the same board each time, unless or until the underlying board
+                   algorithm changes.
 * **size** - The number of blocks per side and cells per block row/column. A traditional 3x3 Sudoku board has size "3". Only size 2 and 3
              boards are supported at the moment. Size 4 boards will be supported when the generator is fixed.
 
+### Puzzle Fields:
+* **board** - Array of ints, in cell order starting at the top left and going horizontally to the bottom right
+* **puzzle** - Array of ints of value 1 or 0 (can be decoded as boolean) arranged in the same manner as the board, representing whether
+               the associated cell is hidden or shown. A 1 value (true) means the value is given and the number should be visible in the
+               puzzle.
+* **puzzleId** - UUID generated for this board, use this when requesting specific boards in the REST API
+* **difficulty** - An integer value giving the difficulty level of the puzzle generated. Defaults to 4. This is currently undefined (TBD).
+* **randomSeed** - (64 bit long integer) Random number generator seed used to create this board, passing zero will give you a random seed.
+                   Passing the same non-zero seed and size should produce the same board each time, unless or until the underlying board
+                   algorithm changes.
+* **size** - The number of blocks per side and cells per block row/column. A traditional 3x3 Sudoku board has size "3". Only size 2 and 3
+             boards are supported at the moment. Size 4 boards will be supported when the generator is fixed.
+
+The board and puzzle fields for boards and puzzle that have not finished being generated will be set to an empty list (e.g.: "board": []).
+Use the status endpoints to determine how much of the board or puzzle has been generated.
+
 ### Query Parameters
-* **size** - Size of boards to query or count
-* **randomSeed** - Random seed used to generate board
-* **inProgress** - If "true" then only show boards which are being generated at the moment. Any other
-                   value will only show already generated boards.
-* **skip** - The number of boards to skip in the results. Use for pagination. The count endpoint 
-             ignores this parameter.
-* **limit** - The maximum number of boards to return. Defaults to 50. Set to zero to have no limit
-              (all boards returned). This parameter is ignored in the count endpoint.
+* **size** - The size of the board or puzzle
+* **randomSeed** - The random seed used to generate the board or puzzle
+* **inProgress** - If "true" then only show boards which are being generated at the moment. Any other value will only show already
+                   generated boards. Useful for filtering out items that are still in progress.
+* **skip** - The number of items to skip in the results. Use for pagination. The count endpoint ignores this parameter.
+* **limit** - The maximum number of items to return. Defaults to 50. Set to zero to have no limit
+              (all items returned). This parameter is ignored in the count endpoint.
 
 ### TODO
 - [ ] Add puzzle generation logic
@@ -163,4 +176,4 @@ All data, including boards, are returned to the client in JSON objects, for exam
 - [ ] Refactor DB code, put it all into one class
 - [ ] Move generator defaults to QueryParams, or at least define them somewhere...
 - [ ] Create generator executor pool to manage system load
-- [ ] GET /sudoku/{boards,puzzles}: Instead of passing a list of entire puzzles or boards, pass only a list of IDs back
+- [X] GET /sudoku/{boards,puzzles}: Instead of passing a list of entire puzzles or boards, pass only a list of IDs back
